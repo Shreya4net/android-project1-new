@@ -1,0 +1,111 @@
+package com.dce.puja.notepad;
+import android.app.AlertDialog;
+import android.app.ListActivity;
+import android.content.ContentValues;
+import android.content.DialogInterface;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
+import android.os.Bundle;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.View;
+import android.widget.EditText;
+import android.widget.ListAdapter;
+import android.widget.SimpleCursorAdapter;
+import android.widget.TextView;
+
+
+
+public class MainActivity extends ListActivity {
+
+
+    private ListAdapter todoListAdapter;
+    private TodolistSQLhelper todoListSQLHelper;
+@Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        updateTodoList();
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menus, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()) {
+            case R.id.add_new_task:
+                AlertDialog.Builder todoTaskBuilder = new AlertDialog.Builder(this);
+                todoTaskBuilder.setTitle("Add Todo Task Item");
+                todoTaskBuilder.setMessage("describe the Todo task...");
+                final EditText todoET = new EditText(this);
+                todoTaskBuilder.setView(todoET);
+                todoTaskBuilder.setPositiveButton("Add Task", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        String todoTaskInput = todoET.getText().toString();
+                        todoListSQLHelper = new TodolistSQLhelper(MainActivity.this);
+                        SQLiteDatabase sqLiteDatabase = todoListSQLHelper.getWritableDatabase();
+                        ContentValues values = new ContentValues();
+                        values.clear();
+                        values.put(TodolistSQLhelper.COL1_TASK, todoTaskInput);
+                        sqLiteDatabase.insertWithOnConflict(TodolistSQLhelper.TABLE_NAME, null, values, SQLiteDatabase.CONFLICT_IGNORE);
+
+
+                        updateTodoList();
+                    }
+                });
+
+                todoTaskBuilder.setNegativeButton("Cancel", null);
+
+                todoTaskBuilder.create().show();
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    //update the todo task list UI
+    private void updateTodoList() {
+        todoListSQLHelper = new TodolistSQLhelper(MainActivity.this);
+        SQLiteDatabase sqLiteDatabase = todoListSQLHelper.getReadableDatabase();
+
+        //cursor to read todo task list from database
+        Cursor cursor = sqLiteDatabase.query(TodolistSQLhelper.TABLE_NAME,
+                new String[]{TodolistSQLhelper._ID, TodolistSQLhelper.COL1_TASK},
+                null, null, null, null, null);
+
+
+        todoListAdapter = new SimpleCursorAdapter(
+                this,
+                R.layout.todotask,
+                cursor,
+                new String[]{TodolistSQLhelper.COL1_TASK},
+                new int[]{R.id.todoTaskTV},
+                0
+        );
+
+        this.setListAdapter(todoListAdapter);
+    }
+    public void onDoneButtonClick(View view) {
+        View v = (View) view.getParent();
+        TextView todoTV = (TextView) v.findViewById(R.id.todoTaskTV);
+        String todoTaskItem = todoTV.getText().toString();
+
+        String deleteTodoItemSql = "DELETE FROM " + TodolistSQLhelper.TABLE_NAME +
+                " WHERE " + TodolistSQLhelper.COL1_TASK + " = '" + todoTaskItem + "'";
+
+        todoListSQLHelper = new TodolistSQLhelper(MainActivity.this);
+        SQLiteDatabase sqlDB = todoListSQLHelper.getWritableDatabase();
+        sqlDB.execSQL(deleteTodoItemSql);
+        updateTodoList();
+    }
+
+
+    }
+
+
